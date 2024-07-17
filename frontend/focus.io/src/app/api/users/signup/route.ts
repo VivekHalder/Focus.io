@@ -4,14 +4,36 @@ import { NextRequest, NextResponse } from "next/server";
 
 connectDB();
 
-async function POST(request: NextRequest) {
+interface User {
+    id: number,
+    username: string,
+    email: string,
+    created_at: Date
+}
+
+interface RequestBody {
+    username: string,
+    email: string
+}
+
+interface Result<T> {
+    command: string,
+    rowCount: number,
+    old: number,
+    rows: T[],
+    fields: any[]
+}
+
+async function POST(request: NextRequest): Promise<NextResponse> {
     try {
-        const requestBody = await request.json();
+        const requestBody: RequestBody = await request.json();
         const { username, email } = requestBody;
 
-        const userAlreadyExistsQuery = `SELECT id FROM users WHERE username = $1 AND email = $2;`;
-        const values = [username, email];
-        const result = await query(userAlreadyExistsQuery, values);
+        const userAlreadyExistsQuery: string = `SELECT id FROM users WHERE username = $1 AND email = $2;`;
+        const values: string[] = [username, email];
+        const result: Result<User> = await query(userAlreadyExistsQuery, values);
+
+        console.log("Existing Users are: ", result);
 
         if (result && result.rows.length > 0) {
             return NextResponse.json(
@@ -24,10 +46,12 @@ async function POST(request: NextRequest) {
             );
         }
 
-        const insertQuery = `INSERT INTO users(username, email) VALUES ($1, $2) RETURNING *;`;
-        const user = await query(insertQuery, values);
+        const insertQuery: string = `INSERT INTO users(username, email) VALUES ($1, $2) RETURNING *;`;
+        const userResult: Result<User> = await query(insertQuery, values);
 
-        if (!user || user.rows.length === 0) {
+        console.log("New Users are: ", userResult);
+
+        if (!userResult || userResult.rows.length === 0) {
             return NextResponse.json(
                 {
                     message: "Couldnot create the user",
@@ -41,7 +65,7 @@ async function POST(request: NextRequest) {
         return NextResponse.json(
             {
                 message: 'User created successfully',
-                user: user.rows[0]
+                user: userResult.rows[0]
             },
             {
                 status: 200
@@ -50,7 +74,7 @@ async function POST(request: NextRequest) {
 
         // await sendEmail({ email: email, emailType: "VERIFY", userId: user.rows[0].id });
 
-    } catch (error) {
+    } catch (error: any) {
         return NextResponse
             .json(
                 {
